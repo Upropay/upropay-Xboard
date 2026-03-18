@@ -7,7 +7,7 @@ Plug and play. No coding required.
 
 ## 🚀 Features / 功能特点
 
-* ✅ Support USDT (TRC20) / 支持 USDT TRC20
+* ✅ Support USDT (TRC20/BEP20) / 支持 USDT TRC20/BEP20
 * ✅ Auto order callback / 自动回调订单
 * ✅ Easy integration / 即插即用
 * ✅ Secure API signature / 安全签名验证
@@ -84,10 +84,10 @@ If something goes wrong / 如出现问题：
 ## ❓ FAQ
 
 **Q: Does this support other coins?**
-A: Currently USDT (TRC20)
+A: Currently USDT (TRC20/BEP20)
 
 问：支持其他币种吗？
-答：目前仅支持 USDT TRC20
+答：目前仅支持 USDT TRC20/BEP20
 
 ---
 
