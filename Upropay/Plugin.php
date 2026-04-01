@@ -21,11 +21,6 @@ class Plugin extends AbstractPlugin implements PaymentInterface
             }
             return $methods;
         });
-
-        $this->filter('payment_methods', function ($methods) {
-            $methods['Upropay'] = Plugin::class;
-            return $methods;
-        });
     }
 
     public function form(): array
@@ -33,38 +28,39 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         return [
             'api_url' => [
                 'label' => 'API URL',
-                'description' => '',
-                'type' => 'input',
+                'description' => 'Upropay API 地址',
+                'type' => 'string',
             ],
             'api_key' => [
                 'label' => 'API Key',
                 'description' => '您的 API Key (X-API-KEY)',
-                'type' => 'input',
+                'type' => 'string',
             ],
             'webhook_secret' => [
                 'label' => 'Webhook Secret',
                 'description' => '用于验证签名的 Secret',
-                'type' => 'input',
+                'type' => 'string',
             ],
             'chain' => [
-                'label' => 'Chain',
+                'label' => '链',
                 'description' => '区块链网络 (TRON 或 BSC)',
-                'type' => 'input',
+                'type' => 'string',
+                'default' => 'TRON',
             ],
             'order_prefix' => [
                 'label' => '订单号前缀',
-                'description' => '例如: v2board_',
-                'type' => 'input',
+                'description' => '例如: Upropay_',
+                'type' => 'string',
             ],
             'return_url' => [
                 'label' => '支付成功后的跳转地址',
                 'description' => 'https://upropay.vip',
-                'type' => 'input',
+                'type' => 'string',
             ],
             'wallet_tag' => [
-                'label' => 'Wallet Tag',
+                'label' => '钱包标签',
                 'description' => '用于选择特定收款钱包的标签 (可选)',
-                'type' => 'input',
+                'type' => 'string',
             ]
         ];
     }
@@ -153,11 +149,11 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         ];
     }
 
-    public function notify($params): array
+    public function notify($params): array|bool
     {
         $signature = \request()->header('X-Signature') ?? ($params['signature'] ?? null);
         if (!$signature) {
-            \abort(400, 'No signature');
+            return false;
         }
 
         $payload = $params;
@@ -181,13 +177,13 @@ class Plugin extends AbstractPlugin implements PaymentInterface
                     'expected_raw' => $expectedRaw,
                     'params' => $params
                 ]);
-                \abort(400, 'Signature mismatch');
+                return false;
             }
         }
 
         // ✅ 状态校验
         if (strtoupper($params['status']) !== 'CONFIRMED') {
-            \abort(400, 'Status not confirmed');
+            return false;
         }
 
         // 订单号处理
@@ -200,14 +196,14 @@ class Plugin extends AbstractPlugin implements PaymentInterface
 
         // ✅ 金额校验（核心安全）
         if (!isset($params['amount'])) {
-            \abort(400, 'No amount');
+            return false;
         }
 
         $callbackAmount = number_format((float)$params['amount'], 2, '.', '');
 
         $order = \App\Models\Order::where('trade_no', $tradeNo)->first();
         if (!$order) {
-            \abort(400, 'Order not found');
+            return false;
         }
 
         $orderAmount = number_format($order->total_amount / 100, 2, '.', '');
@@ -218,7 +214,7 @@ class Plugin extends AbstractPlugin implements PaymentInterface
                 'callback_amount' => $callbackAmount,
                 'order_amount' => $orderAmount
             ]);
-            \abort(400, 'Amount mismatch');
+            return false;
         }
 
         // ✅ 成功日志（建议保留）
