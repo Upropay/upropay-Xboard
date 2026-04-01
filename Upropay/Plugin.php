@@ -1,18 +1,34 @@
 <?php
 
-namespace App\Payments;
+namespace Plugin\Upropay;
 
-use GuzzleHttp\Client;
+use App\Services\Plugin\AbstractPlugin;
+use App\Contracts\PaymentInterface;
+use Illuminate\Support\Facades\Log;
 
-class UproPay {
-    private $config;
-
-    public function __construct($config)
+class Plugin extends AbstractPlugin implements PaymentInterface
+{
+    public function boot(): void
     {
-        $this->config = $config;
+        $this->filter('available_payment_methods', function ($methods) {
+            if ($this->getConfig('enabled', true)) {
+                $methods['Upropay'] = [
+                    'name' => $this->getConfig('display_name', 'Upropay'),
+                    'icon' => $this->getConfig('icon', '💳'),
+                    'plugin_code' => $this->getPluginCode(),
+                    'type' => 'plugin'
+                ];
+            }
+            return $methods;
+        });
+
+        $this->filter('payment_methods', function ($methods) {
+            $methods['Upropay'] = Plugin::class;
+            return $methods;
+        });
     }
 
-    public function form()
+    public function form(): array
     {
         return [
             'api_url' => [
@@ -42,7 +58,7 @@ class UproPay {
             ],
             'return_url' => [
                 'label' => '支付成功后的跳转地址',
-                'description' => '例如: https://your-site.com/#/order',
+                'description' => 'https://upropay.vip',
                 'type' => 'input',
             ],
             'wallet_tag' => [
@@ -53,16 +69,11 @@ class UproPay {
         ];
     }
 
-    public function pay($order)
+    public function pay($order): array
     {
         if (!filter_var($this->config['api_url'], FILTER_VALIDATE_URL)) {
-            abort(500, 'UproPay: API URL 非法');
+            \abort(500, 'UproPay: API URL 非法');
         }
-
-        $client = new Client([
-            'base_uri' => $this->config['api_url'],
-            'timeout'  => 10.0,
-        ]);
 
         $merchantOrderId = ($this->config['order_prefix'] ?? '') . $order['trade_no'];
 
@@ -87,67 +98,66 @@ class UproPay {
             $payload['walletTag'] = $this->config['wallet_tag'];
         }
 
-        try {
-            $response = $client->post('/api/transactions', [
-                'headers' => [
-                    'X-API-KEY' => $this->config['api_key'],
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json'
-                ],
-                'json' => $payload
-            ]);
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, rtrim($this->config['api_url'], '/') . '/api/transactions');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'X-API-KEY: ' . $this->config['api_key'],
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
 
-            $result = json_decode($response->getBody()->getContents(), true);
-
-            if (!isset($result['paymentUrl'])) {
-                abort(500, 'UproPay: 接口响应异常');
-            }
-
-            $paymentUrl = $result['paymentUrl'];
-            $returnUrl = !empty($this->config['return_url']) ? $this->config['return_url'] : $order['return_url'];
-
-            // ✅ 防重复拼接 redirectUrl
-            if ($returnUrl && strpos($paymentUrl, 'redirectUrl=') === false) {
-                $paymentUrl .= (strpos($paymentUrl, '?') === false ? '?' : '&') . 'redirectUrl=' . urlencode($returnUrl);
-            }
-
-            return [
-                'type' => 1,
-                'data' => $paymentUrl
-            ];
-        } catch (\Exception $e) {
-            $message = $e->getMessage();
-
-            if ($e instanceof \GuzzleHttp\Exception\ClientException) {
-                $response = $e->getResponse();
-                if ($response) {
-                    $body = json_decode($response->getBody()->getContents(), true);
-                    $serverMsg = $body['message'] ?? '未知错误';
-
-                    if ($response->getStatusCode() === 403) {
-                        abort(500, '域名未授权: ' . $serverMsg);
-                    }
-
-                    if ($response->getStatusCode() === 404) {
-                        if (strpos($serverMsg, 'No active wallet found') !== false) {
-                            abort(500, '收款地址不存在: ' . $serverMsg);
-                        }
-                        abort(500, '接口 404: ' . $serverMsg);
-                    }
-
-                    $message = "接口返回({$response->getStatusCode()}): " . $serverMsg;
-                }
-            }
-
-            abort(500, 'UproPay: ' . $message);
+        if ($response === false) {
+            \abort(500, 'UproPay: 网络请求失败 - ' . $error);
         }
+
+        $result = json_decode($response, true);
+
+        if ($httpCode >= 400) {
+            $serverMsg = $result['message'] ?? '未知错误';
+            if ($httpCode === 403) {
+                \abort(500, '域名未授权: ' . $serverMsg);
+            }
+            if ($httpCode === 404) {
+                if (strpos($serverMsg, 'No active wallet found') !== false) {
+                    \abort(500, '收款地址不存在: ' . $serverMsg);
+                }
+                \abort(500, '接口 404: ' . $serverMsg);
+            }
+            \abort(500, "UproPay: 接口返回({$httpCode}): " . $serverMsg);
+        }
+
+        if (!isset($result['paymentUrl'])) {
+            \abort(500, 'UproPay: 接口响应异常');
+        }
+
+        $paymentUrl = $result['paymentUrl'];
+        $returnUrl = !empty($this->config['return_url']) ? $this->config['return_url'] : $order['return_url'];
+
+        // ✅ 防重复拼接 redirectUrl
+        if ($returnUrl && strpos($paymentUrl, 'redirectUrl=') === false) {
+            $paymentUrl .= (strpos($paymentUrl, '?') === false ? '?' : '&') . 'redirectUrl=' . urlencode($returnUrl);
+        }
+
+        return [
+            'type' => 1,
+            'data' => $paymentUrl
+        ];
     }
 
-    public function notify($params)
+    public function notify($params): array
     {
-        $signature = request()->header('X-Signature') ?? ($params['signature'] ?? null);
+        $signature = \request()->header('X-Signature') ?? ($params['signature'] ?? null);
         if (!$signature) {
-            return false;
+            \abort(400, 'No signature');
         }
 
         $payload = $params;
@@ -161,23 +171,23 @@ class UproPay {
 
         if (!hash_equals($expected, $signature)) {
             // fallback: raw body
-            $rawPayload = request()->getContent();
+            $rawPayload = \request()->getContent();
             $expectedRaw = hash_hmac('sha256', $rawPayload, $this->config['webhook_secret']);
 
             if (!hash_equals($expectedRaw, $signature)) {
-                \Illuminate\Support\Facades\Log::error('UproPay notify signature verify failed', [
+                Log::error('UproPay notify signature verify failed', [
                     'signature' => $signature,
                     'expected_json' => $expected,
                     'expected_raw' => $expectedRaw,
                     'params' => $params
                 ]);
-                return false;
+                \abort(400, 'Signature mismatch');
             }
         }
 
         // ✅ 状态校验
         if (strtoupper($params['status']) !== 'CONFIRMED') {
-            return false;
+            \abort(400, 'Status not confirmed');
         }
 
         // 订单号处理
@@ -190,29 +200,29 @@ class UproPay {
 
         // ✅ 金额校验（核心安全）
         if (!isset($params['amount'])) {
-            return false;
+            \abort(400, 'No amount');
         }
 
         $callbackAmount = number_format((float)$params['amount'], 2, '.', '');
 
         $order = \App\Models\Order::where('trade_no', $tradeNo)->first();
         if (!$order) {
-            return false;
+            \abort(400, 'Order not found');
         }
 
         $orderAmount = number_format($order->total_amount / 100, 2, '.', '');
 
         if ($callbackAmount !== $orderAmount) {
-            \Illuminate\Support\Facades\Log::error('UproPay amount mismatch', [
+            Log::error('UproPay amount mismatch', [
                 'trade_no' => $tradeNo,
                 'callback_amount' => $callbackAmount,
                 'order_amount' => $orderAmount
             ]);
-            return false;
+            \abort(400, 'Amount mismatch');
         }
 
         // ✅ 成功日志（建议保留）
-        \Illuminate\Support\Facades\Log::info('UproPay notify success', [
+        Log::info('UproPay notify success', [
             'trade_no' => $tradeNo,
             'amount' => $callbackAmount
         ]);

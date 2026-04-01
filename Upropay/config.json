@@ -1,0 +1,8 @@
+{
+    "name": "Upropay",
+    "code": "upropay",
+    "type": "payment",
+    "version": "1.0.0",
+    "description": "Upropay payment plugin",
+    "author": "Upropay Team"
+}
