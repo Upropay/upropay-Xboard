@@ -199,7 +199,7 @@ class Plugin extends AbstractPlugin implements PaymentInterface
 
         // ✅ 金额校验（核心安全）
         // Upropay 回调中 amount 是加密货币数量，fiatAmount 是原始法币金额
-        $rawAmount = $params['fiatAmount'] ?? $params['sourceAmount'] ?? $params['amount'] ?? null;
+        $rawAmount = $params['fiatAmount'] ??0;
         if (!$rawAmount) {
             return false;
         }
@@ -217,7 +217,8 @@ class Plugin extends AbstractPlugin implements PaymentInterface
             Log::error('UproPay amount mismatch', [
                 'trade_no' => $tradeNo,
                 'callback_amount' => $callbackAmount,
-                'order_amount' => $orderAmount
+                'order_amount' => $orderAmount,
+                'params' => $params
             ]);
             return false;
         }
