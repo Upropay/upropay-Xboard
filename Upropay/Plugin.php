@@ -119,11 +119,14 @@ class Plugin extends AbstractPlugin implements PaymentInterface
 
         if ($httpCode >= 400) {
             $serverMsg = $result['message'] ?? '未知错误';
+            if (is_array($serverMsg)) {
+                $serverMsg = json_encode($serverMsg, JSON_UNESCAPED_UNICODE);
+            }
             if ($httpCode === 403) {
                 \abort(500, '域名未授权: ' . $serverMsg);
             }
             if ($httpCode === 404) {
-                if (strpos($serverMsg, 'No active wallet found') !== false) {
+                if (strpos((string)$serverMsg, 'No active wallet found') !== false) {
                     \abort(500, '收款地址不存在: ' . $serverMsg);
                 }
                 \abort(500, '接口 404: ' . $serverMsg);
