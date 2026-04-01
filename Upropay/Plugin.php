@@ -198,11 +198,13 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         }
 
         // ✅ 金额校验（核心安全）
-        if (!isset($params['amount'])) {
+        // Upropay 回调中 amount 是加密货币数量，fiatAmount 是原始法币金额
+        $rawAmount = $params['fiatAmount'] ?? $params['sourceAmount'] ?? $params['amount'] ?? null;
+        if (!$rawAmount) {
             return false;
         }
 
-        $callbackAmount = number_format((float)$params['amount'], 2, '.', '');
+        $callbackAmount = number_format((float)$rawAmount, 2, '.', '');
 
         $order = \App\Models\Order::where('trade_no', $tradeNo)->first();
         if (!$order) {
