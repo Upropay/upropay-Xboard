@@ -1,6 +1,6 @@
-# Upropay V2Board Payment Plugin
+# Upropay XBoard Payment Plugin
 
-USDT（TRC20）支付插件，适用于 V2Board。
+USDT（TRC20）支付插件，适用于 XBoard。
 Plug and play. No coding required.
 
 ---
@@ -12,7 +12,7 @@ Plug and play. No coding required.
 * ✅ Easy integration / 即插即用
 * ✅ Secure API signature / 安全签名验证
 * ✅ Lightweight & open source / 轻量开源
-* ✅ No modification required / 无需修改 V2Board 核心
+* ✅ No modification required / 无需修改 XBoard 核心
 
 ---
 
@@ -23,7 +23,7 @@ Plug and play. No coding required.
 
 /app/Payments/
 
-3. Go to V2Board Admin Panel / 进入后台
+3. Go to XBoard Admin Panel / 进入后台
 4. Enable **Upropay** payment method / 启用插件
 5. Fill in API credentials / 填写 API 信息
 
@@ -91,7 +91,7 @@ A: Currently USDT (TRC20/BEP20)
 
 ---
 
-**Q: Do I need to modify V2Board?**
+**Q: Do I need to modify XBoard?**
 A: No
 
 问：需要修改源码吗？
