@@ -74,7 +74,7 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         $merchantOrderId = ($this->config['order_prefix'] ?? '') . $order['trade_no'];
 
         // ✅ 金额修复（避免 float 精度问题）
-        $amount = number_format($order['total_amount'] / 100, 2, '.', '');
+        $amount = (float)number_format($order['total_amount'] / 100, 2, '.', '');
 
         // ✅ chain 标准化
         $chain = strtoupper($this->config['chain'] ?? 'TRON');
