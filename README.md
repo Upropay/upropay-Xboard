@@ -17,14 +17,13 @@ Plug and play. No coding required.
 ---
 
 ## 📦 Installation / 安装教程
+> Xboard面板中的支持插件管理，所以`Upropay-USDT支付插件 `插件直接下载后上传安装即可。
 
-1. Download this repository / 下载本仓库
-2. Upload `Upropay.php` to / 上传文件到：
-
-/app/Payments/
+1. Download this Plugin / 下载插件包 （https://github.com/Upropay/upropay-Xboard/releases/download/v1.0.0/Upropay.zip）
+2. Upload `Upropay.zip`：从插件管理页面上传插件包
 
 3. Go to XBoard Admin Panel / 进入后台
-4. Enable **Upropay** payment method / 启用插件
+4. Install && Enable **Upropay Plugin** payment method / 安装并启用Upropay支付插件插件
 5. Fill in API credentials / 填写 API 信息
 
 Done ✅ / 完成
